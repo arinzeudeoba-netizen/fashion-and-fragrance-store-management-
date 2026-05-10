@@ -13,7 +13,7 @@
     <!-- Confetti JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     
-    <!-- FULLY EMBEDDED CSS: This guarantees the styles will never break on Vercel -->
+    <!-- FULLY EMBEDDED CSS -->
     <style>
         :root {
             --primary: #111827;
@@ -34,20 +34,9 @@
             --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        /* Base Styles */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--secondary);
-            color: var(--text-main);
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-        h1, h2, h3, h4, h5, h6 {
-            font-family: 'Playfair Display', serif;
-            color: var(--primary);
-            font-weight: 600;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--secondary); color: var(--text-main); line-height: 1.6; overflow-x: hidden; }
+        h1, h2, h3, h4, h5, h6 { font-family: 'Playfair Display', serif; color: var(--primary); font-weight: 600; }
         a { text-decoration: none; color: inherit; transition: var(--transition); }
         ul { list-style: none; }
         img { max-width: 100%; display: block; }
@@ -110,6 +99,11 @@
         .close-cart { font-size: 1.5rem; color: var(--text-light); transition: var(--transition); }
         .close-cart:hover { color: var(--error); transform: rotate(90deg); }
         .offcanvas-body { flex: 1; overflow-y: auto; padding: 24px; }
+        .offcanvas-item { display: flex; gap: 16px; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); }
+        .offcanvas-item img { width: 80px; height: 80px; object-fit: cover; border-radius: var(--radius); }
+        .offcanvas-item-details h4 { font-size: 0.95rem; margin-bottom: 4px; font-family: 'Inter', sans-serif; font-weight: 600; }
+        .offcanvas-price { color: var(--accent); font-weight: 600; margin-bottom: 4px; }
+        .offcanvas-qty { font-size: 0.85rem; color: var(--text-light); }
         .offcanvas-empty { text-align: center; padding: 40px 0; }
         .empty-icon { font-size: 3rem; color: var(--border); margin-bottom: 16px; }
         .offcanvas-footer { padding: 24px; border-top: 1px solid var(--border); background: var(--secondary); }
@@ -256,7 +250,7 @@
             </nav>
 
             <div class="header-actions">
-                <a href="#" class="icon-btn" aria-label="Login" onclick="alert('Login disabled in static demo.'); return false;"><i class="far fa-user"></i></a>
+                <a href="#" id="auth-btn" class="icon-btn" aria-label="Login"><i class="far fa-user"></i></a>
 
                 <!-- Cart Toggle -->
                 <button class="icon-btn cart-toggle" aria-label="View Cart">
@@ -293,8 +287,8 @@
                 <span>Subtotal:</span>
                 <span>₦0.00</span>
             </div>
-            <a href="#" class="btn btn-outline btn-block mb-10" onclick="alert('Cart disabled in static demo.'); return false;">View Cart</a>
-            <a href="#" class="btn btn-primary btn-block" onclick="alert('Checkout disabled in static demo.'); return false;">Checkout</a>
+            <a href="#" class="btn btn-outline btn-block mb-10" id="view-cart-btn">View Cart</a>
+            <a href="#" class="btn btn-primary btn-block" id="checkout-btn">Checkout</a>
         </div>
     </div>
     <div class="offcanvas-overlay"></div>
@@ -551,7 +545,7 @@
         <i class="fas fa-chevron-up"></i>
     </button>
 
-    <!-- FULLY EMBEDDED JS: This guarantees interactions will never break on Vercel -->
+    <!-- FULLY EMBEDDED JS: Static LocalStorage Engine for Vercel Demo -->
     <script>
         // Toast Notification System
         window.showToast = function(message, type = 'success') {
@@ -570,6 +564,168 @@
         };
 
         document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- LocalStorage Store Engine (Simulating PHP backend) ---
+            let currentUser = localStorage.getItem('ff_user');
+            let cart = JSON.parse(localStorage.getItem('ff_cart')) || [];
+            
+            const loginBtn = document.getElementById('auth-btn');
+            const cartBadge = document.getElementById('cart-badge-count');
+            const ocCartBadge = document.querySelector('.offcanvas-count');
+            const ocCartBody = document.querySelector('.offcanvas-body');
+            const ocCartTotal = document.querySelector('.offcanvas-total span:last-child');
+            
+            function updateAuthUI() {
+                if(loginBtn) {
+                    if(currentUser) {
+                        loginBtn.innerHTML = `<i class="fas fa-sign-out-alt"></i>`;
+                        loginBtn.setAttribute('title', 'Logout ' + currentUser);
+                    } else {
+                        loginBtn.innerHTML = `<i class="far fa-user"></i>`;
+                        loginBtn.setAttribute('title', 'Login');
+                    }
+                }
+            }
+            
+            function handleAuth(e) {
+                e.preventDefault();
+                if(currentUser) {
+                    localStorage.removeItem('ff_user');
+                    currentUser = null;
+                    showToast('Logged out successfully', 'success');
+                } else {
+                    const name = prompt("Enter your name to login:");
+                    if(name && name.trim()) {
+                        currentUser = name.trim();
+                        localStorage.setItem('ff_user', currentUser);
+                        showToast(`Welcome back, ${currentUser}!`, 'success');
+                    }
+                }
+                updateAuthUI();
+            }
+
+            if(loginBtn) loginBtn.addEventListener('click', handleAuth);
+            
+            function renderCart() {
+                let totalItems = 0;
+                let totalPrice = 0;
+                
+                if(cart.length === 0) {
+                    ocCartBody.innerHTML = `
+                        <div class="offcanvas-empty">
+                            <i class="fas fa-shopping-bag empty-icon"></i>
+                            <p>Your cart is empty.</p>
+                        </div>
+                    `;
+                    if(cartBadge) cartBadge.innerText = '0';
+                    if(ocCartBadge) ocCartBadge.innerText = '0';
+                    if(ocCartTotal) ocCartTotal.innerText = '₦0.00';
+                    return;
+                }
+                
+                let html = '<div class="offcanvas-items">';
+                cart.forEach((item, index) => {
+                    totalItems += item.qty;
+                    totalPrice += item.price * item.qty;
+                    html += `
+                        <div class="offcanvas-item">
+                            <img src="${item.img}" alt="Product" style="width:60px; height:60px; object-fit:cover; border-radius:8px;">
+                            <div class="offcanvas-item-details" style="flex:1;">
+                                <h4 style="font-size:0.9rem; margin-bottom:4px;">${item.name}</h4>
+                                <div class="offcanvas-price" style="color:#D4AF37; font-weight:600;">₦${item.price.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:5px;">
+                                    <span style="font-size:0.8rem; color:#666;">Qty: ${item.qty}</span>
+                                    <button class="btn-text" onclick="removeFromCart(${index})" style="color:#EF4444; cursor:pointer;"><i class="fas fa-trash"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                
+                ocCartBody.innerHTML = html;
+                if(cartBadge) cartBadge.innerText = totalItems;
+                if(ocCartBadge) ocCartBadge.innerText = totalItems;
+                if(ocCartTotal) ocCartTotal.innerText = '₦' + totalPrice.toLocaleString('en-US', {minimumFractionDigits: 2});
+            }
+            
+            window.removeFromCart = function(index) {
+                cart.splice(index, 1);
+                localStorage.setItem('ff_cart', JSON.stringify(cart));
+                renderCart();
+            };
+
+            function addToCart(name, price, img, qty) {
+                if(!currentUser) {
+                    showToast('Please login to add items to your cart.', 'error');
+                    return;
+                }
+                const existingItem = cart.find(i => i.name === name);
+                if(existingItem) {
+                    existingItem.qty += qty;
+                } else {
+                    cart.push({ name, price, img, qty });
+                }
+                localStorage.setItem('ff_cart', JSON.stringify(cart));
+                renderCart();
+                showToast(`${name} added to cart!`, 'success');
+                openCart();
+            }
+
+            // Init state
+            updateAuthUI();
+            renderCart();
+
+            // Handle Checkout
+            document.getElementById('checkout-btn').addEventListener('click', (e) => {
+                e.preventDefault();
+                if(!currentUser) return showToast('Please login to checkout.', 'error');
+                if(cart.length === 0) return showToast('Your cart is empty.', 'error');
+                
+                confetti({ particleCount: 150, spread: 80, origin: { y: 0.6 } });
+                showToast('Order placed successfully!', 'success');
+                
+                cart = [];
+                localStorage.setItem('ff_cart', JSON.stringify(cart));
+                renderCart();
+                setTimeout(closeCart, 2500);
+            });
+
+            document.getElementById('view-cart-btn').addEventListener('click', (e) => {
+                e.preventDefault();
+                if(cart.length === 0) return showToast('Your cart is empty.', 'error');
+                openCart();
+            });
+
+            // Add to Cart Interception
+            const addCartForms = document.querySelectorAll('.add-to-cart-form');
+            addCartForms.forEach(form => {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    if(!currentUser) {
+                        showToast('Please login to add items to your cart.', 'error');
+                        return;
+                    }
+                    const btn = form.querySelector('.btn-add-cart');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+                    
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        const qty = parseInt(form.querySelector('.qty-input').value);
+                        const card = form.closest('.product-card');
+                        const name = card.querySelector('.product-name').innerText;
+                        const priceText = card.querySelector('.product-price').innerText.replace(/[^0-9.-]+/g,"");
+                        const price = parseFloat(priceText);
+                        const img = card.querySelector('img').src;
+                        
+                        addToCart(name, price, img, qty);
+                    }, 400);
+                });
+            });
+
+            // --- UI Interactions ---
+
             // Header Scroll & Back to Top
             const header = document.getElementById('main-header');
             const backToTop = document.getElementById('back-to-top');
@@ -594,7 +750,7 @@
                 });
             }
 
-            // Off-Canvas Cart
+            // Off-Canvas Cart Toggle
             const cartToggleBtns = document.querySelectorAll('.cart-toggle');
             const offcanvasCart = document.getElementById('offcanvas-cart');
             const closeCartBtn = document.querySelector('.close-cart');
@@ -660,32 +816,6 @@
                             setTimeout(() => { card.style.display = 'none'; }, 300);
                         }
                     });
-                });
-            });
-
-            // Mock Add to Cart for Static Version
-            const addCartForms = document.querySelectorAll('.add-to-cart-form');
-            addCartForms.forEach(form => {
-                form.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    const btn = form.querySelector('.btn-add-cart');
-                    const originalText = btn.innerHTML;
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
-                    
-                    setTimeout(() => {
-                        btn.innerHTML = originalText;
-                        const qty = parseInt(form.querySelector('.qty-input').value);
-                        const card = form.closest('.product-card');
-                        const name = card.querySelector('.product-name').innerText;
-                        
-                        showToast(`${name} added to cart!`, 'success');
-                        
-                        const badge = document.getElementById('cart-badge-count');
-                        if(badge) badge.innerText = parseInt(badge.innerText || 0) + qty;
-                        
-                        const ocBadge = document.querySelector('.offcanvas-count');
-                        if(ocBadge) ocBadge.innerText = parseInt(ocBadge.innerText || 0) + qty;
-                    }, 600);
                 });
             });
 
