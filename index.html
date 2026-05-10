@@ -1,120 +1,316 @@
+<?php
+if(session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once 'config/database.php';
+
+// Handle Add to Cart
+if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_to_cart'])) {
+    if(!isset($_SESSION['user_id'])) {
+        echo "<script>alert('Please login to add items to your cart.'); window.location.href='login.php';</script>";
+        exit;
+    }
+    
+    $product_id = $_POST['product_id'];
+    $quantity = $_POST['quantity'];
+    $user_id = $_SESSION['user_id'];
+    
+    // Check if exists
+    $stmt = $pdo->prepare("SELECT id, quantity FROM cart WHERE user_id = ? AND product_id = ?");
+    $stmt->execute([$user_id, $product_id]);
+    $existing = $stmt->fetch();
+    
+    if($existing) {
+        $new_qty = $existing['quantity'] + $quantity;
+        $update = $pdo->prepare("UPDATE cart SET quantity = ? WHERE id = ?");
+        $update->execute([$new_qty, $existing['id']]);
+    } else {
+        $insert = $pdo->prepare("INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)");
+        $insert->execute([$user_id, $product_id, $quantity]);
+    }
+    echo "<script>alert('Product added to cart!'); window.location.href='index.html';</script>";
+}
+
+// Fetch products
+$stmt = $pdo->query("SELECT * FROM products ORDER BY category");
+$products = $stmt->fetchAll();
+
+$men = array_filter($products, fn($p) => $p['category'] === 'male_fashion');
+$women = array_filter($products, fn($p) => $p['category'] === 'female_fashion');
+$fragrances = array_filter($products, fn($p) => $p['category'] === 'fragrance');
+
+$cart_count = 0;
+$offcanvas_cart_items = [];
+$offcanvas_total = 0;
+
+if(isset($_SESSION['user_id'])){
+    $stmt = $pdo->prepare("SELECT SUM(quantity) as total FROM cart WHERE user_id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $res = $stmt->fetch();
+    $cart_count = $res['total'] ? $res['total'] : 0;
+    
+    // Fetch items for off-canvas
+    $stmt_oc = $pdo->prepare("
+        SELECT c.id as cart_id, c.quantity, p.id as product_id, p.name, p.price, p.image_url 
+        FROM cart c 
+        JOIN products p ON c.product_id = p.id 
+        WHERE c.user_id = ?
+    ");
+    $stmt_oc->execute([$_SESSION['user_id']]);
+    $offcanvas_cart_items = $stmt_oc->fetchAll();
+    foreach($offcanvas_cart_items as $oc_item) {
+        $offcanvas_total += $oc_item['price'] * $oc_item['quantity'];
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome to F&F Fashion and Fragrance</title>
+    <title>F&F Fashion and Fragrance</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Link to your existing CSS -->
+    <!-- Confetti JS for Checkout -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
-    <style>
-        /* Landing Page Specific Styles */
-        body, html {
-            height: 100%;
-            margin: 0;
-            overflow: hidden; /* Prevent scrolling on splash screen */
-            background-color: #0a0a0a;
-        }
-        .landing-hero {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            position: relative;
-            z-index: 1;
-        }
-        .landing-bg {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: url('https://images.unsplash.com/photo-1490481651829-28c0b5e28a52?q=80&w=2000&auto=format&fit=crop');
-            background-size: cover;
-            background-position: center;
-            filter: brightness(0.4);
-            z-index: -1;
-            animation: zoomInOut 20s infinite alternate;
-        }
-        @keyframes zoomInOut {
-            0% { transform: scale(1); }
-            100% { transform: scale(1.1); }
-        }
-        .landing-content {
-            color: white;
-            max-width: 800px;
-            padding: 2rem;
-            animation: fadeInUp 1.5s ease-out forwards;
-        }
-        .landing-content h1 {
-            font-family: 'Playfair Display', serif;
-            font-size: 5rem;
-            margin-bottom: 1rem;
-            letter-spacing: 2px;
-        }
-        .landing-content p {
-            font-family: 'Inter', sans-serif;
-            font-size: 1.2rem;
-            margin-bottom: 2.5rem;
-            color: #ccc;
-            font-weight: 300;
-        }
-        .enter-btn {
-            display: inline-block;
-            padding: 1rem 3rem;
-            font-size: 1.2rem;
-            font-weight: 500;
-            color: #0a0a0a;
-            background: linear-gradient(135deg, #d4af37 0%, #aa8c2c 100%);
-            text-decoration: none;
-            border-radius: 50px;
-            transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 10px 20px rgba(212, 175, 55, 0.3);
-        }
-        .enter-btn:hover {
-            transform: translateY(-3px) scale(1.05);
-            box-shadow: 0 15px 25px rgba(212, 175, 55, 0.5);
-            color: #fff;
-        }
-        .landing-logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 2rem;
-            font-weight: 700;
-            color: #fff;
-            position: absolute;
-            top: 2rem;
-            left: 2rem;
-            text-decoration: none;
-        }
-        .landing-logo span {
-            color: #d4af37;
-        }
-    </style>
 </head>
 <body>
-
-    <div class="landing-hero">
-        <div class="landing-bg"></div>
-        
-        <a href="index.php" class="landing-logo">F&F<span>.</span></a>
-
-        <div class="landing-content">
-            <h1>Elegance Awaits</h1>
-            <p>Step into a world of curated luxury fashion and signature fragrances designed for the modern connoisseur.</p>
-            <!-- This button links the HTML front to the PHP backend application -->
-            <a href="index.php" class="enter-btn">Enter Store <i class="fas fa-arrow-right" style="margin-left: 8px;"></i></a>
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="container top-bar-inner">
+            <div class="top-bar-left">
+                <i class="fas fa-map-marker-alt"></i> SABURIA NO11, DEI-DEI
+            </div>
+            <div class="top-bar-right">
+                <a href="https://wa.me/2348074001039" target="_blank" class="hover-gold"><i class="fab fa-whatsapp"></i> +2348074001039</a>
+                <a href="mailto:arinzeudeoba@gmail.com" class="hover-gold"><i class="fas fa-envelope"></i> arinzeudeoba@gmail.com</a>
+                <a href="https://instagram.com/arin_ze67" target="_blank" class="hover-gold"><i class="fab fa-instagram"></i> @arin_ze67</a>
+            </div>
         </div>
     </div>
 
-    <!-- Link your JS just in case we add interactions here later -->
+    <!-- Main Header -->
+    <header class="header" id="main-header">
+        <div class="container header-inner">
+            <div class="logo-wrapper">
+                <a href="index.html" class="logo">F&F<span>.</span></a>
+            </div>
+            
+            <nav class="nav" id="main-nav">
+                <ul class="nav-list">
+                    <li><a href="index.html#men" class="nav-link" data-filter="male_fashion">Men</a></li>
+                    <li><a href="index.html#women" class="nav-link" data-filter="female_fashion">Women</a></li>
+                    <li><a href="index.html#fragrance" class="nav-link" data-filter="fragrance">Fragrance</a></li>
+                </ul>
+            </nav>
+
+            <div class="header-actions">
+                <!-- User Auth -->
+                <?php if(isset($_SESSION['user_id'])): ?>
+                    <div class="user-dropdown">
+                        <button class="icon-btn" aria-label="User Account">
+                            <i class="far fa-user"></i>
+                        </button>
+                        <div class="dropdown-menu">
+                            <div class="dropdown-header">Hello, <?= htmlspecialchars(explode(' ', $_SESSION['fullname'])[0]) ?></div>
+                            <a href="cart.php"><i class="fas fa-shopping-bag"></i> My Cart</a>
+                            <a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <a href="login.php" class="icon-btn" aria-label="Login"><i class="far fa-user"></i></a>
+                <?php endif; ?>
+
+                <!-- Cart Toggle -->
+                <button class="icon-btn cart-toggle" aria-label="View Cart">
+                    <i class="fas fa-shopping-bag"></i>
+                    <span class="cart-badge" id="cart-badge-count"><?= $cart_count ?></span>
+                </button>
+
+                <!-- Mobile Menu Toggle -->
+                <button class="icon-btn mobile-menu-btn" aria-label="Menu">
+                    <div class="hamburger">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Off-Canvas Cart -->
+    <div class="offcanvas-cart" id="offcanvas-cart">
+        <div class="offcanvas-header">
+            <h3>Your Cart (<span class="offcanvas-count"><?= $cart_count ?></span>)</h3>
+            <button class="close-cart"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="offcanvas-body">
+            <?php if(empty($offcanvas_cart_items)): ?>
+                <div class="offcanvas-empty">
+                    <i class="fas fa-shopping-bag empty-icon"></i>
+                    <p>Your cart is empty.</p>
+                    <a href="index.html" class="btn btn-primary close-cart-link">Shop Now</a>
+                </div>
+            <?php else: ?>
+                <div class="offcanvas-items">
+                    <?php foreach($offcanvas_cart_items as $item): ?>
+                        <div class="offcanvas-item">
+                            <img src="<?= htmlspecialchars($item['image_url']) ?>" alt="Product">
+                            <div class="offcanvas-item-details">
+                                <h4><?= htmlspecialchars($item['name']) ?></h4>
+                                <div class="offcanvas-price">₦<?= number_format($item['price'], 2) ?></div>
+                                <div class="offcanvas-qty">Qty: <?= $item['quantity'] ?></div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+        <div class="offcanvas-footer">
+            <div class="offcanvas-total">
+                <span>Subtotal:</span>
+                <span>₦<?= number_format($offcanvas_total, 2) ?></span>
+            </div>
+            <a href="cart.php" class="btn btn-outline btn-block mb-10">View Cart</a>
+            <a href="checkout.php" class="btn btn-primary btn-block">Checkout</a>
+        </div>
+    </div>
+    <div class="offcanvas-overlay"></div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <main class="main-content">
+        <section class="hero">
+            <div class="hero-bg"></div>
+            <div class="hero-overlay"></div>
+            <div class="container hero-content fade-in-up">
+                <span class="hero-badge">New Collection 2026</span>
+                <h1>Redefine Your<br>Elegance.</h1>
+                <p>Discover a curated selection of premium fashion and signature fragrances designed for the modern connoisseur.</p>
+                <a href="#shop" class="btn btn-primary btn-hero">Explore Collection <i class="fas fa-arrow-down"></i></a>
+            </div>
+        </section>
+
+        <div class="container shop-container" id="shop">
+            <div class="shop-header fade-in">
+                <h2 class="section-title">The Collection</h2>
+                <div class="filter-group">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="male_fashion">Men</button>
+                    <button class="filter-btn" data-filter="female_fashion">Women</button>
+                    <button class="filter-btn" data-filter="fragrance">Fragrance</button>
+                </div>
+            </div>
+
+            <div class="products-container">
+                <?php foreach($products as $p): ?>
+                <div class="product-card fade-in" data-category="<?= htmlspecialchars($p['category']) ?>">
+                    <div class="product-img-wrapper">
+                        <img src="<?= htmlspecialchars($p['image_url']) ?>&auto=format" alt="<?= htmlspecialchars($p['name']) ?>" loading="lazy" class="product-img">
+                        <div class="badges">
+                            <?php if($p['category'] === 'fragrance'): ?>
+                                <span class="badge badge-dark">Premium</span>
+                            <?php else: ?>
+                                <span class="badge badge-light">In Stock</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="product-overlay">
+                            <form method="POST" class="add-to-cart-form" data-product-id="<?= $p['id'] ?>" data-product-name="<?= htmlspecialchars($p['name']) ?>" data-product-price="<?= $p['price'] ?>" data-product-image="<?= htmlspecialchars($p['image_url']) ?>">
+                                <input type="hidden" name="product_id" value="<?= $p['id'] ?>">
+                                <input type="hidden" name="add_to_cart" value="1">
+                                <div class="qty-stepper">
+                                    <button type="button" class="qty-btn minus"><i class="fas fa-minus"></i></button>
+                                    <input type="number" name="quantity" value="1" min="1" max="10" class="qty-input" readonly>
+                                    <button type="button" class="qty-btn plus"><i class="fas fa-plus"></i></button>
+                                </div>
+                                <button type="submit" class="btn btn-add-cart"><i class="fas fa-shopping-bag"></i> Quick Add</button>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="product-info">
+                        <div class="product-meta">
+                            <span class="product-gender"><?= ucfirst($p['gender']) ?></span>
+                        </div>
+                        <h3 class="product-name" title="<?= htmlspecialchars($p['name']) ?>"><?= htmlspecialchars($p['name']) ?></h3>
+                        <div class="product-price">₦<?= number_format($p['price'], 2) ?></div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </main> <!-- End main-content -->
+
+    <footer class="footer">
+        <div class="container footer-grid">
+            <div class="footer-brand">
+                <a href="index.html" class="logo footer-logo">F&F<span>.</span></a>
+                <p class="footer-desc">Curating luxury and elegance. Discover our exclusive collection of premium clothing and signature fragrances.</p>
+                <div class="social-icons">
+                    <a href="https://instagram.com/arin_ze67" target="_blank" data-tooltip="Instagram"><i class="fab fa-instagram"></i></a>
+                    <a href="https://wa.me/2348074001039" target="_blank" data-tooltip="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                    <a href="mailto:arinzeudeoba@gmail.com" data-tooltip="Email"><i class="far fa-envelope"></i></a>
+                </div>
+            </div>
+            
+            <div class="footer-links">
+                <h3>Shop</h3>
+                <ul>
+                    <li><a href="index.html#men">Men's Collection</a></li>
+                    <li><a href="index.html#women">Women's Collection</a></li>
+                    <li><a href="index.html#fragrance">Fragrances</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-contact">
+                <h3>Contact</h3>
+                <ul class="contact-list">
+                    <li>
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>SABURIA NO11, DEI-DEI</span>
+                    </li>
+                    <li>
+                        <i class="fab fa-whatsapp"></i>
+                        <a href="https://wa.me/2348074001039" target="_blank">+2348074001039</a>
+                    </li>
+                    <li>
+                        <i class="far fa-envelope"></i>
+                        <a href="mailto:arinzeudeoba@gmail.com">arinzeudeoba@gmail.com</a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="footer-newsletter">
+                <h3>Join Our List</h3>
+                <p>Subscribe for exclusive offers and updates.</p>
+                <form class="newsletter-form" onsubmit="event.preventDefault(); showToast('Subscribed successfully!', 'success'); this.reset();">
+                    <input type="email" placeholder="Your email address" required>
+                    <button type="submit" aria-label="Subscribe"><i class="fas fa-arrow-right"></i></button>
+                </form>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <div class="container">
+                <p>&copy; <?= date('Y') ?> F&F Fashion and Fragrance. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Back to Top -->
+    <button id="back-to-top" aria-label="Back to top">
+        <i class="fas fa-chevron-up"></i>
+    </button>
+
+    <script>
+        const IS_LOGGED_IN = <?= isset($_SESSION['user_id']) ? 'true' : 'false' ?>;
+    </script>
     <script src="assets/js/script.js"></script>
 </body>
 </html>
