@@ -8,12 +8,222 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
-    <!-- FontAwesome -->
+    <!-- FontAwesome CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Confetti JS for Checkout -->
+    <!-- Confetti JS CDN -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/css/style.css">
+    
+    <!-- FULLY EMBEDDED CSS: This guarantees the styles will never break on Vercel -->
+    <style>
+        :root {
+            --primary: #111827;
+            --secondary: #FDFCF0;
+            --accent: #D4AF37;
+            --accent-hover: #C5A028;
+            --text-main: #334155;
+            --text-light: #64748B;
+            --white: #FFFFFF;
+            --error: #EF4444;
+            --success: #10B981;
+            --border: #E2E8F0;
+            --radius: 12px;
+            --radius-lg: 20px;
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+            --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.05);
+            --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.1);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Base Styles */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--secondary);
+            color: var(--text-main);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Playfair Display', serif;
+            color: var(--primary);
+            font-weight: 600;
+        }
+        a { text-decoration: none; color: inherit; transition: var(--transition); }
+        ul { list-style: none; }
+        img { max-width: 100%; display: block; }
+        button { font-family: inherit; cursor: pointer; border: none; background: none; }
+
+        .container { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
+        .text-gold { color: var(--accent); }
+        .text-success { color: var(--success); }
+        .mt-20 { margin-top: 20px; }
+        .mb-10 { margin-bottom: 10px; }
+        .hover-underline:hover { text-decoration: underline; }
+
+        /* Top Bar */
+        .top-bar { background: var(--primary); color: #e2e8f0; font-size: 0.8rem; padding: 8px 0; letter-spacing: 0.5px; }
+        .top-bar-inner { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .top-bar-right { display: flex; gap: 20px; }
+        .top-bar i { color: var(--accent); margin-right: 6px; }
+        .hover-gold:hover { color: var(--accent); }
+
+        /* Header */
+        .header { position: sticky; top: 0; z-index: 1000; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid transparent; transition: var(--transition); }
+        .header.scrolled { background: var(--white); box-shadow: var(--shadow-sm); border-bottom: 1px solid var(--border); }
+        .header-inner { height: 80px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-family: 'Playfair Display', serif; font-size: 1.75rem; font-weight: 700; color: var(--primary); letter-spacing: 1px; }
+        .logo span { color: var(--accent); }
+
+        .nav-list { display: flex; gap: 32px; }
+        .nav-link { font-weight: 500; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px; position: relative; padding: 8px 0; color: var(--text-main); }
+        .nav-link::after { content: ''; position: absolute; bottom: 0; left: 0; width: 0; height: 2px; background: var(--accent); transition: var(--transition); }
+        .nav-link:hover::after, .nav-link.active::after { width: 100%; }
+        .nav-link.active { color: var(--accent); font-weight: 600; }
+
+        .header-actions { display: flex; align-items: center; gap: 16px; }
+        .icon-btn { font-size: 1.25rem; color: var(--primary); position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: var(--transition); }
+        .icon-btn:hover { background: var(--secondary); color: var(--accent); }
+        .cart-badge { position: absolute; top: 4px; right: 4px; background: var(--accent); color: var(--white); font-size: 0.65rem; font-weight: 700; min-width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+        /* Hamburger */
+        .hamburger { width: 24px; height: 18px; position: relative; display: flex; flex-direction: column; justify-content: space-between; }
+        .hamburger span { width: 100%; height: 2px; background: var(--primary); transition: var(--transition); }
+        .hamburger.active span:nth-child(1) { transform: translateY(8px) rotate(45deg); }
+        .hamburger.active span:nth-child(2) { opacity: 0; }
+        .hamburger.active span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); }
+        .mobile-menu-btn { display: none; }
+
+        /* Buttons */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 28px; border-radius: 30px; font-weight: 600; font-size: 0.95rem; letter-spacing: 0.5px; transition: var(--transition); border: 2px solid transparent; }
+        .btn-primary { background: var(--primary); color: var(--white); }
+        .btn-primary:hover { background: var(--accent); color: var(--white); transform: translateY(-2px); box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3); }
+        .btn-outline { background: transparent; border-color: var(--primary); color: var(--primary); }
+        .btn-outline:hover { background: var(--primary); color: var(--white); }
+        .btn-block { width: 100%; }
+
+        /* Off-canvas Cart */
+        .offcanvas-cart { position: fixed; top: 0; right: -400px; width: 100%; max-width: 400px; height: 100vh; background: var(--white); z-index: 2000; box-shadow: -5px 0 25px rgba(0,0,0,0.1); transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; }
+        .offcanvas-cart.active { right: 0; }
+        .offcanvas-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1999; opacity: 0; visibility: hidden; transition: var(--transition); backdrop-filter: blur(3px); }
+        .offcanvas-overlay.active { opacity: 1; visibility: visible; }
+        .offcanvas-header { padding: 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .close-cart { font-size: 1.5rem; color: var(--text-light); transition: var(--transition); }
+        .close-cart:hover { color: var(--error); transform: rotate(90deg); }
+        .offcanvas-body { flex: 1; overflow-y: auto; padding: 24px; }
+        .offcanvas-empty { text-align: center; padding: 40px 0; }
+        .empty-icon { font-size: 3rem; color: var(--border); margin-bottom: 16px; }
+        .offcanvas-footer { padding: 24px; border-top: 1px solid var(--border); background: var(--secondary); }
+        .offcanvas-total { display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: 700; color: var(--primary); margin-bottom: 20px; }
+
+        /* Toast */
+        #toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 9999; display: flex; flex-direction: column; gap: 10px; }
+        .toast { background: var(--white); color: var(--text-main); padding: 16px 24px; border-radius: var(--radius); box-shadow: var(--shadow-lg); display: flex; align-items: center; gap: 12px; font-weight: 500; transform: translateX(120%); transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .toast.show { transform: translateX(0); }
+        .toast-success i { color: var(--success); font-size: 1.25rem; }
+
+        /* Hero Section */
+        .hero { position: relative; height: 80vh; min-height: 600px; display: flex; align-items: center; justify-content: center; overflow: hidden; text-align: center; }
+        .hero-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: url('https://images.unsplash.com/photo-1441984904996-e0b6ba687e04?w=1600&auto=format&fit=crop&q=80') center/cover; animation: kenburns 20s ease-out forwards; z-index: 1; }
+        @keyframes kenburns { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
+        .hero-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, rgba(17,24,39,0.9) 0%, rgba(17,24,39,0.5) 100%); z-index: 2; }
+        .hero-content { position: relative; z-index: 3; max-width: 800px; color: var(--white); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .hero-badge { display: inline-block; padding: 6px 16px; background: rgba(212, 175, 55, 0.2); border: 1px solid var(--accent); color: var(--accent); border-radius: 30px; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 24px; }
+        .hero h1 { font-size: clamp(3rem, 5vw, 4.5rem); color: var(--white); line-height: 1.1; margin-bottom: 24px; }
+        .hero p { font-size: 1.1rem; color: #cbd5e1; margin: 0 auto 40px; font-weight: 300; max-width: 600px; }
+        .btn-hero { padding: 18px 36px; font-size: 1.1rem; animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-8px); } 100% { transform: translateY(0px); } }
+
+        /* Shop Section */
+        .shop-container { padding: 80px 24px; }
+        .shop-header { display: flex; flex-direction: column; align-items: center; margin-bottom: 60px; text-align: center; }
+        .section-title { font-size: 2.5rem; margin-bottom: 30px; }
+        .filter-group { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+        .filter-btn { padding: 10px 24px; border-radius: 30px; background: var(--white); border: 1px solid var(--border); color: var(--text-light); font-weight: 500; font-size: 0.95rem; transition: var(--transition); }
+        .filter-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .filter-btn.active { background: var(--primary); color: var(--white); border-color: var(--primary); }
+
+        .products-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 40px; }
+        .product-card { background: var(--white); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); transition: var(--transition); position: relative; }
+        .product-card:hover { transform: translateY(-8px); box-shadow: var(--shadow-lg); }
+        .product-img-wrapper { position: relative; height: 360px; overflow: hidden; }
+        .product-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s ease; }
+        .product-card:hover .product-img { transform: scale(1.08); }
+
+        .badges { position: absolute; top: 16px; left: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 2; }
+        .badge { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; backdrop-filter: blur(5px); }
+        .badge-dark { background: rgba(17,24,39,0.8); color: var(--white); }
+        .badge-light { background: rgba(255,255,255,0.9); color: var(--primary); }
+
+        .product-overlay { position: absolute; bottom: 0; left: 0; width: 100%; padding: 20px; background: linear-gradient(to top, rgba(255,255,255,1) 0%, rgba(255,255,255,0.9) 70%, transparent 100%); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); z-index: 3; }
+        .product-card:hover .product-overlay { transform: translateY(0); }
+        .add-to-cart-form { display: flex; flex-direction: column; gap: 12px; }
+
+        .qty-stepper { display: flex; align-items: center; justify-content: space-between; background: var(--secondary); border-radius: 30px; padding: 4px; }
+        .qty-btn { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--white); color: var(--primary); box-shadow: var(--shadow-sm); transition: var(--transition); }
+        .qty-btn:hover { background: var(--primary); color: var(--white); }
+        .qty-input { width: 40px; text-align: center; border: none; background: transparent; font-weight: 600; color: var(--primary); outline: none; }
+
+        .btn-add-cart { background: var(--primary); color: var(--white); border-radius: 30px; padding: 12px; font-weight: 600; display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; transition: var(--transition); border: none; cursor: pointer; }
+        .btn-add-cart:hover { background: var(--accent); transform: scale(1.05); box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4); }
+
+        .product-info { padding: 24px; text-align: center; }
+        .product-meta { margin-bottom: 8px; }
+        .product-gender { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-light); font-weight: 600; }
+        .product-name { font-family: 'Inter', sans-serif; font-size: 1.1rem; font-weight: 600; margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--primary); }
+        .product-price { font-size: 1.25rem; font-weight: 700; color: var(--accent); }
+
+        /* Animation Utils */
+        .fade-in { opacity: 0; transition: opacity 0.8s ease, transform 0.8s ease; }
+        .fade-in-up { opacity: 0; transform: translateY(30px); transition: opacity 0.8s ease, transform 0.8s ease; }
+        .appear { opacity: 1 !important; transform: translateY(0) !important; }
+
+        /* Footer */
+        .footer { background: var(--primary); color: var(--secondary); padding: 80px 0 0; }
+        .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1.5fr 1.5fr; gap: 40px; margin-bottom: 60px; }
+        .footer-logo { color: var(--white); margin-bottom: 24px; display: inline-block; }
+        .footer-desc { color: #94A3B8; font-size: 0.95rem; margin-bottom: 24px; max-width: 300px; }
+        .social-icons { display: flex; gap: 16px; }
+        .social-icons a { width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; transition: var(--transition); position: relative; }
+        .social-icons a:hover { background: var(--accent); color: var(--white); transform: translateY(-3px); }
+
+        .footer h3 { color: var(--white); font-family: 'Inter', sans-serif; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 24px; }
+        .footer-links ul li { margin-bottom: 12px; }
+        .footer-links a { color: #94A3B8; font-size: 0.95rem; }
+        .footer-links a:hover { color: var(--accent); padding-left: 8px; }
+
+        .contact-list li { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; color: #94A3B8; font-size: 0.95rem; }
+        .contact-list i { color: var(--accent); margin-top: 4px; }
+
+        .footer-newsletter p { color: #94A3B8; font-size: 0.9rem; margin-bottom: 16px; }
+        .newsletter-form { display: flex; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 30px; padding: 4px; }
+        .newsletter-form input { flex: 1; background: transparent; border: none; padding: 12px 16px; color: var(--white); outline: none; }
+        .newsletter-form button { width: 44px; height: 44px; background: var(--accent); color: var(--white); border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
+
+        .footer-bottom { border-top: 1px solid rgba(255,255,255,0.1); padding: 24px 0; text-align: center; color: #94A3B8; font-size: 0.9rem; }
+
+        /* Back to Top */
+        #back-to-top { position: fixed; bottom: 30px; right: 30px; width: 50px; height: 50px; background: var(--primary); color: var(--white); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; box-shadow: var(--shadow-lg); opacity: 0; visibility: hidden; transform: translateY(20px); transition: var(--transition); z-index: 999; border: 2px solid transparent; }
+        #back-to-top.visible { opacity: 1; visibility: visible; transform: translateY(0); }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .footer-grid { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 768px) {
+            .header-inner { height: 70px; }
+            .nav { position: absolute; top: 100%; left: 0; width: 100%; background: var(--white); box-shadow: var(--shadow-md); padding: 20px; clip-path: polygon(0 0, 100% 0, 100% 0, 0 0); transition: clip-path 0.4s ease-in-out; }
+            .nav.active { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+            .nav-list { flex-direction: column; gap: 0; }
+            .nav-link { display: block; padding: 16px 0; border-bottom: 1px solid var(--border); }
+            .mobile-menu-btn { display: flex; }
+            .top-bar-right { display: none; }
+            .top-bar-inner { justify-content: center; }
+        }
+        @media (max-width: 480px) {
+            .hero h1 { font-size: 2.5rem; }
+            .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+        }
+    </style>
 </head>
 <body>
     <!-- Top Bar -->
@@ -46,7 +256,7 @@
             </nav>
 
             <div class="header-actions">
-                <a href="login.html" class="icon-btn" aria-label="Login"><i class="far fa-user"></i></a>
+                <a href="#" class="icon-btn" aria-label="Login" onclick="alert('Login disabled in static demo.'); return false;"><i class="far fa-user"></i></a>
 
                 <!-- Cart Toggle -->
                 <button class="icon-btn cart-toggle" aria-label="View Cart">
@@ -76,7 +286,6 @@
             <div class="offcanvas-empty">
                 <i class="fas fa-shopping-bag empty-icon"></i>
                 <p>Your cart is empty.</p>
-                <button class="btn btn-primary close-cart-link">Shop Now</button>
             </div>
         </div>
         <div class="offcanvas-footer">
@@ -84,8 +293,8 @@
                 <span>Subtotal:</span>
                 <span>₦0.00</span>
             </div>
-            <a href="#" class="btn btn-outline btn-block mb-10">View Cart</a>
-            <a href="#" class="btn btn-primary btn-block">Checkout</a>
+            <a href="#" class="btn btn-outline btn-block mb-10" onclick="alert('Cart disabled in static demo.'); return false;">View Cart</a>
+            <a href="#" class="btn btn-primary btn-block" onclick="alert('Checkout disabled in static demo.'); return false;">Checkout</a>
         </div>
     </div>
     <div class="offcanvas-overlay"></div>
@@ -125,7 +334,7 @@
                             <span class="badge badge-light">In Stock</span>
                         </div>
                         <div class="product-overlay">
-                            <form class="add-to-cart-form" onsubmit="event.preventDefault(); alert('Product added to cart (Static preview).');">
+                            <form class="add-to-cart-form">
                                 <div class="qty-stepper">
                                     <button type="button" class="qty-btn minus"><i class="fas fa-minus"></i></button>
                                     <input type="number" name="quantity" value="1" min="1" max="10" class="qty-input" readonly>
@@ -152,7 +361,7 @@
                             <span class="badge badge-light">In Stock</span>
                         </div>
                         <div class="product-overlay">
-                            <form class="add-to-cart-form" onsubmit="event.preventDefault(); alert('Product added to cart (Static preview).');">
+                            <form class="add-to-cart-form">
                                 <div class="qty-stepper">
                                     <button type="button" class="qty-btn minus"><i class="fas fa-minus"></i></button>
                                     <input type="number" name="quantity" value="1" min="1" max="10" class="qty-input" readonly>
@@ -179,7 +388,7 @@
                             <span class="badge badge-dark">Premium</span>
                         </div>
                         <div class="product-overlay">
-                            <form class="add-to-cart-form" onsubmit="event.preventDefault(); alert('Product added to cart (Static preview).');">
+                            <form class="add-to-cart-form">
                                 <div class="qty-stepper">
                                     <button type="button" class="qty-btn minus"><i class="fas fa-minus"></i></button>
                                     <input type="number" name="quantity" value="1" min="1" max="10" class="qty-input" readonly>
@@ -206,7 +415,7 @@
                             <span class="badge badge-light">In Stock</span>
                         </div>
                         <div class="product-overlay">
-                            <form class="add-to-cart-form" onsubmit="event.preventDefault(); alert('Product added to cart (Static preview).');">
+                            <form class="add-to-cart-form">
                                 <div class="qty-stepper">
                                     <button type="button" class="qty-btn minus"><i class="fas fa-minus"></i></button>
                                     <input type="number" name="quantity" value="1" min="1" max="10" class="qty-input" readonly>
@@ -233,7 +442,7 @@
                             <span class="badge badge-light">In Stock</span>
                         </div>
                         <div class="product-overlay">
-                            <form class="add-to-cart-form" onsubmit="event.preventDefault(); alert('Product added to cart (Static preview).');">
+                            <form class="add-to-cart-form">
                                 <div class="qty-stepper">
                                     <button type="button" class="qty-btn minus"><i class="fas fa-minus"></i></button>
                                     <input type="number" name="quantity" value="1" min="1" max="10" class="qty-input" readonly>
@@ -260,7 +469,7 @@
                             <span class="badge badge-dark">Premium</span>
                         </div>
                         <div class="product-overlay">
-                            <form class="add-to-cart-form" onsubmit="event.preventDefault(); alert('Product added to cart (Static preview).');">
+                            <form class="add-to-cart-form">
                                 <div class="qty-stepper">
                                     <button type="button" class="qty-btn minus"><i class="fas fa-minus"></i></button>
                                     <input type="number" name="quantity" value="1" min="1" max="10" class="qty-input" readonly>
@@ -324,7 +533,7 @@
             <div class="footer-newsletter">
                 <h3>Join Our List</h3>
                 <p>Subscribe for exclusive offers and updates.</p>
-                <form class="newsletter-form" onsubmit="event.preventDefault(); alert('Subscribed successfully!'); this.reset();">
+                <form class="newsletter-form" onsubmit="event.preventDefault(); showToast('Subscribed successfully!', 'success'); this.reset();">
                     <input type="email" placeholder="Your email address" required>
                     <button type="submit" aria-label="Subscribe"><i class="fas fa-arrow-right"></i></button>
                 </form>
@@ -342,10 +551,158 @@
         <i class="fas fa-chevron-up"></i>
     </button>
 
+    <!-- FULLY EMBEDDED JS: This guarantees interactions will never break on Vercel -->
     <script>
-        // Provide the IS_LOGGED_IN variable that your script.js expects
-        const IS_LOGGED_IN = false;
+        // Toast Notification System
+        window.showToast = function(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            const iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+            toast.innerHTML = `<i class="fas ${iconClass}"></i> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.classList.add('show'); }, 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => { toast.remove(); }, 300);
+            }, 3000);
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Header Scroll & Back to Top
+            const header = document.getElementById('main-header');
+            const backToTop = document.getElementById('back-to-top');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 50) header.classList.add('scrolled');
+                else header.classList.remove('scrolled');
+                if (window.scrollY > 500) backToTop?.classList.add('visible');
+                else backToTop?.classList.remove('visible');
+            });
+            backToTop?.addEventListener('click', () => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            // Mobile Menu
+            const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+            const nav = document.getElementById('main-nav');
+            const hamburger = document.querySelector('.hamburger');
+            if (mobileMenuBtn && nav) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    nav.classList.toggle('active');
+                    hamburger.classList.toggle('active');
+                });
+            }
+
+            // Off-Canvas Cart
+            const cartToggleBtns = document.querySelectorAll('.cart-toggle');
+            const offcanvasCart = document.getElementById('offcanvas-cart');
+            const closeCartBtn = document.querySelector('.close-cart');
+            const offcanvasOverlay = document.querySelector('.offcanvas-overlay');
+
+            function openCart() {
+                if(offcanvasCart) offcanvasCart.classList.add('active');
+                if(offcanvasOverlay) offcanvasOverlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+            function closeCart() {
+                if(offcanvasCart) offcanvasCart.classList.remove('active');
+                if(offcanvasOverlay) offcanvasOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+
+            cartToggleBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    openCart();
+                });
+            });
+            closeCartBtn?.addEventListener('click', closeCart);
+            offcanvasOverlay?.addEventListener('click', closeCart);
+
+            // Quantity Stepper
+            document.querySelectorAll('.qty-stepper').forEach(stepper => {
+                const minusBtn = stepper.querySelector('.minus');
+                const plusBtn = stepper.querySelector('.plus');
+                const input = stepper.querySelector('.qty-input');
+                if (minusBtn && plusBtn && input) {
+                    minusBtn.addEventListener('click', () => {
+                        let val = parseInt(input.value);
+                        if (val > parseInt(input.min || 1)) input.value = val - 1;
+                    });
+                    plusBtn.addEventListener('click', () => {
+                        let val = parseInt(input.value);
+                        let max = parseInt(input.max || 20);
+                        if (val < max) input.value = val + 1;
+                    });
+                }
+            });
+
+            // Static Product Filtering
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            const productCards = document.querySelectorAll('.product-card');
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const filterValue = btn.getAttribute('data-filter');
+                    productCards.forEach(card => {
+                        const category = card.getAttribute('data-category');
+                        if (filterValue === 'all' || category === filterValue) {
+                            card.style.display = 'block';
+                            setTimeout(() => {
+                                card.style.opacity = '1';
+                                card.style.transform = 'translateY(0)';
+                            }, 50);
+                        } else {
+                            card.style.opacity = '0';
+                            card.style.transform = 'translateY(20px)';
+                            setTimeout(() => { card.style.display = 'none'; }, 300);
+                        }
+                    });
+                });
+            });
+
+            // Mock Add to Cart for Static Version
+            const addCartForms = document.querySelectorAll('.add-to-cart-form');
+            addCartForms.forEach(form => {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const btn = form.querySelector('.btn-add-cart');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+                    
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        const qty = parseInt(form.querySelector('.qty-input').value);
+                        const card = form.closest('.product-card');
+                        const name = card.querySelector('.product-name').innerText;
+                        
+                        showToast(`${name} added to cart!`, 'success');
+                        
+                        const badge = document.getElementById('cart-badge-count');
+                        if(badge) badge.innerText = parseInt(badge.innerText || 0) + qty;
+                        
+                        const ocBadge = document.querySelector('.offcanvas-count');
+                        if(ocBadge) ocBadge.innerText = parseInt(ocBadge.innerText || 0) + qty;
+                    }, 600);
+                });
+            });
+
+            // Scroll Animations
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('appear');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
+
+            document.querySelectorAll('.fade-in, .fade-in-up').forEach(el => {
+                observer.observe(el);
+            });
+        });
     </script>
-    <script src="assets/js/script.js"></script>
 </body>
 </html>
