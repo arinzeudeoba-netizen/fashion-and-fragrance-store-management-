@@ -1,68 +1,3 @@
-<?php
-if(session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-require_once 'config/database.php';
-
-// Handle Add to Cart
-if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_to_cart'])) {
-    if(!isset($_SESSION['user_id'])) {
-        echo "<script>alert('Please login to add items to your cart.'); window.location.href='login.php';</script>";
-        exit;
-    }
-    
-    $product_id = $_POST['product_id'];
-    $quantity = $_POST['quantity'];
-    $user_id = $_SESSION['user_id'];
-    
-    // Check if exists
-    $stmt = $pdo->prepare("SELECT id, quantity FROM cart WHERE user_id = ? AND product_id = ?");
-    $stmt->execute([$user_id, $product_id]);
-    $existing = $stmt->fetch();
-    
-    if($existing) {
-        $new_qty = $existing['quantity'] + $quantity;
-        $update = $pdo->prepare("UPDATE cart SET quantity = ? WHERE id = ?");
-        $update->execute([$new_qty, $existing['id']]);
-    } else {
-        $insert = $pdo->prepare("INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)");
-        $insert->execute([$user_id, $product_id, $quantity]);
-    }
-    echo "<script>alert('Product added to cart!'); window.location.href='index.html';</script>";
-}
-
-// Fetch products
-$stmt = $pdo->query("SELECT * FROM products ORDER BY category");
-$products = $stmt->fetchAll();
-
-$men = array_filter($products, fn($p) => $p['category'] === 'male_fashion');
-$women = array_filter($products, fn($p) => $p['category'] === 'female_fashion');
-$fragrances = array_filter($products, fn($p) => $p['category'] === 'fragrance');
-
-$cart_count = 0;
-$offcanvas_cart_items = [];
-$offcanvas_total = 0;
-
-if(isset($_SESSION['user_id'])){
-    $stmt = $pdo->prepare("SELECT SUM(quantity) as total FROM cart WHERE user_id = ?");
-    $stmt->execute([$_SESSION['user_id']]);
-    $res = $stmt->fetch();
-    $cart_count = $res['total'] ? $res['total'] : 0;
-    
-    // Fetch items for off-canvas
-    $stmt_oc = $pdo->prepare("
-        SELECT c.id as cart_id, c.quantity, p.id as product_id, p.name, p.price, p.image_url 
-        FROM cart c 
-        JOIN products p ON c.product_id = p.id 
-        WHERE c.user_id = ?
-    ");
-    $stmt_oc->execute([$_SESSION['user_id']]);
-    $offcanvas_cart_items = $stmt_oc->fetchAll();
-    foreach($offcanvas_cart_items as $oc_item) {
-        $offcanvas_total += $oc_item['price'] * $oc_item['quantity'];
-    }
-}
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -75,8 +10,6 @@ if(isset($_SESSION['user_id'])){
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Confetti JS for Checkout -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <!-- Custom CSS -->
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
@@ -104,33 +37,20 @@ if(isset($_SESSION['user_id'])){
             
             <nav class="nav" id="main-nav">
                 <ul class="nav-list">
-                    <li><a href="index.html#men" class="nav-link" data-filter="male_fashion">Men</a></li>
-                    <li><a href="index.html#women" class="nav-link" data-filter="female_fashion">Women</a></li>
-                    <li><a href="index.html#fragrance" class="nav-link" data-filter="fragrance">Fragrance</a></li>
+                    <li><a href="#shop" class="nav-link" data-filter="male_fashion">Men</a></li>
+                    <li><a href="#shop" class="nav-link" data-filter="female_fashion">Women</a></li>
+                    <li><a href="#shop" class="nav-link" data-filter="fragrance">Fragrance</a></li>
                 </ul>
             </nav>
 
             <div class="header-actions">
-                <!-- User Auth -->
-                <?php if(isset($_SESSION['user_id'])): ?>
-                    <div class="user-dropdown">
-                        <button class="icon-btn" aria-label="User Account">
-                            <i class="far fa-user"></i>
-                        </button>
-                        <div class="dropdown-menu">
-                            <div class="dropdown-header">Hello, <?= htmlspecialchars(explode(' ', $_SESSION['fullname'])[0]) ?></div>
-                            <a href="cart.php"><i class="fas fa-shopping-bag"></i> My Cart</a>
-                            <a href="logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <a href="login.php" class="icon-btn" aria-label="Login"><i class="far fa-user"></i></a>
-                <?php endif; ?>
+                <!-- User Auth (Static) -->
+                <a href="login.html" class="icon-btn" aria-label="Login" onclick="alert('Login page not available in static preview.'); return false;"><i class="far fa-user"></i></a>
 
                 <!-- Cart Toggle -->
-                <button class="icon-btn cart-toggle" aria-label="View Cart">
+                <button class="icon-btn cart-toggle" aria-label="View Cart" onclick="document.getElementById('offcanvas-cart').classList.add('active'); document.querySelector('.offcanvas-overlay').classList.add('active');">
                     <i class="fas fa-shopping-bag"></i>
-                    <span class="cart-badge" id="cart-badge-count"><?= $cart_count ?></span>
+                    <span class="cart-badge" id="cart-badge-count">0</span>
                 </button>
 
                 <!-- Mobile Menu Toggle -->
@@ -145,172 +65,235 @@ if(isset($_SESSION['user_id'])){
         </div>
     </header>
 
-    <!-- Off-Canvas Cart -->
+    <!-- Off-Canvas Cart (Static) -->
     <div class="offcanvas-cart" id="offcanvas-cart">
         <div class="offcanvas-header">
-            <h3>Your Cart (<span class="offcanvas-count"><?= $cart_count ?></span>)</h3>
-            <button class="close-cart"><i class="fas fa-times"></i></button>
+            <h3>Your Cart (<span class="offcanvas-count">0</span>)</h3>
+            <button class="close-cart" onclick="document.getElementById('offcanvas-cart').classList.remove('active'); document.querySelector('.offcanvas-overlay').classList.remove('active');"><i class="fas fa-times"></i></button>
         </div>
         <div class="offcanvas-body">
-            <?php if(empty($offcanvas_cart_items)): ?>
-                <div class="offcanvas-empty">
-                    <i class="fas fa-shopping-bag empty-icon"></i>
-                    <p>Your cart is empty.</p>
-                    <a href="index.html" class="btn btn-primary close-cart-link">Shop Now</a>
-                </div>
-            <?php else: ?>
-                <div class="offcanvas-items">
-                    <?php foreach($offcanvas_cart_items as $item): ?>
-                        <div class="offcanvas-item">
-                            <img src="<?= htmlspecialchars($item['image_url']) ?>" alt="Product">
-                            <div class="offcanvas-item-details">
-                                <h4><?= htmlspecialchars($item['name']) ?></h4>
-                                <div class="offcanvas-price">₦<?= number_format($item['price'], 2) ?></div>
-                                <div class="offcanvas-qty">Qty: <?= $item['quantity'] ?></div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-        </div>
-        <div class="offcanvas-footer">
-            <div class="offcanvas-total">
-                <span>Subtotal:</span>
-                <span>₦<?= number_format($offcanvas_total, 2) ?></span>
+            <div class="offcanvas-empty">
+                <i class="fas fa-shopping-bag empty-icon"></i>
+                <p>Your cart is empty.</p>
+                <button class="btn btn-primary" onclick="document.getElementById('offcanvas-cart').classList.remove('active'); document.querySelector('.offcanvas-overlay').classList.remove('active');">Shop Now</button>
             </div>
-            <a href="cart.php" class="btn btn-outline btn-block mb-10">View Cart</a>
-            <a href="checkout.php" class="btn btn-primary btn-block">Checkout</a>
         </div>
     </div>
-    <div class="offcanvas-overlay"></div>
+    <div class="offcanvas-overlay" onclick="document.getElementById('offcanvas-cart').classList.remove('active'); this.classList.remove('active');"></div>
 
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
     <main class="main-content">
         <section class="hero">
-            <div class="hero-bg"></div>
-            <div class="hero-overlay"></div>
-            <div class="container hero-content fade-in-up">
-                <span class="hero-badge">New Collection 2026</span>
-                <h1>Redefine Your<br>Elegance.</h1>
-                <p>Discover a curated selection of premium fashion and signature fragrances designed for the modern connoisseur.</p>
-                <a href="#shop" class="btn btn-primary btn-hero">Explore Collection <i class="fas fa-arrow-down"></i></a>
+            <div class="hero-bg" style="background-image: url('https://images.unsplash.com/photo-1490481651829-28c0b5e28a52?q=80&w=2000&auto=format&fit=crop'); background-size: cover; background-position: center; filter: brightness(0.5); position: absolute; top:0; left:0; width: 100%; height: 100%; z-index: -2;"></div>
+            <div class="hero-overlay" style="position: absolute; top:0; left:0; width: 100%; height: 100%; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); z-index: -1;"></div>
+            <div class="container hero-content fade-in-up" style="padding-top: 150px; padding-bottom: 150px; text-align: center; color: white;">
+                <span class="hero-badge" style="display: inline-block; padding: 5px 15px; border: 1px solid #d4af37; color: #d4af37; border-radius: 30px; margin-bottom: 20px; font-weight: 500;">New Collection 2026</span>
+                <h1 style="font-family: 'Playfair Display', serif; font-size: 4.5rem; margin-bottom: 20px;">Redefine Your<br>Elegance.</h1>
+                <p style="font-size: 1.2rem; max-width: 600px; margin: 0 auto 30px; color: #ddd;">Discover a curated selection of premium fashion and signature fragrances designed for the modern connoisseur.</p>
+                <a href="#shop" class="btn btn-primary btn-hero" style="background: #d4af37; color: #000; padding: 15px 30px; border-radius: 5px; text-decoration: none; font-weight: 600;">Explore Collection <i class="fas fa-arrow-down"></i></a>
             </div>
         </section>
 
-        <div class="container shop-container" id="shop">
-            <div class="shop-header fade-in">
-                <h2 class="section-title">The Collection</h2>
-                <div class="filter-group">
-                    <button class="filter-btn active" data-filter="all">All</button>
-                    <button class="filter-btn" data-filter="male_fashion">Men</button>
-                    <button class="filter-btn" data-filter="female_fashion">Women</button>
-                    <button class="filter-btn" data-filter="fragrance">Fragrance</button>
+        <div class="container shop-container" id="shop" style="padding: 80px 0;">
+            <div class="shop-header fade-in" style="text-align: center; margin-bottom: 50px;">
+                <h2 class="section-title" style="font-family: 'Playfair Display', serif; font-size: 2.5rem; margin-bottom: 30px;">The Collection</h2>
+                <div class="filter-group" style="display: flex; justify-content: center; gap: 15px; flex-wrap: wrap;">
+                    <button class="filter-btn active" data-filter="all" style="padding: 10px 20px; border: 1px solid #ddd; background: transparent; cursor: pointer; border-radius: 5px;">All</button>
+                    <button class="filter-btn" data-filter="male_fashion" style="padding: 10px 20px; border: 1px solid #ddd; background: transparent; cursor: pointer; border-radius: 5px;">Men</button>
+                    <button class="filter-btn" data-filter="female_fashion" style="padding: 10px 20px; border: 1px solid #ddd; background: transparent; cursor: pointer; border-radius: 5px;">Women</button>
+                    <button class="filter-btn" data-filter="fragrance" style="padding: 10px 20px; border: 1px solid #ddd; background: transparent; cursor: pointer; border-radius: 5px;">Fragrance</button>
                 </div>
             </div>
 
-            <div class="products-container">
-                <?php foreach($products as $p): ?>
-                <div class="product-card fade-in" data-category="<?= htmlspecialchars($p['category']) ?>">
-                    <div class="product-img-wrapper">
-                        <img src="<?= htmlspecialchars($p['image_url']) ?>&auto=format" alt="<?= htmlspecialchars($p['name']) ?>" loading="lazy" class="product-img">
-                        <div class="badges">
-                            <?php if($p['category'] === 'fragrance'): ?>
-                                <span class="badge badge-dark">Premium</span>
-                            <?php else: ?>
-                                <span class="badge badge-light">In Stock</span>
-                            <?php endif; ?>
-                        </div>
-                        <div class="product-overlay">
-                            <form method="POST" class="add-to-cart-form" data-product-id="<?= $p['id'] ?>" data-product-name="<?= htmlspecialchars($p['name']) ?>" data-product-price="<?= $p['price'] ?>" data-product-image="<?= htmlspecialchars($p['image_url']) ?>">
-                                <input type="hidden" name="product_id" value="<?= $p['id'] ?>">
-                                <input type="hidden" name="add_to_cart" value="1">
-                                <div class="qty-stepper">
-                                    <button type="button" class="qty-btn minus"><i class="fas fa-minus"></i></button>
-                                    <input type="number" name="quantity" value="1" min="1" max="10" class="qty-input" readonly>
-                                    <button type="button" class="qty-btn plus"><i class="fas fa-plus"></i></button>
-                                </div>
-                                <button type="submit" class="btn btn-add-cart"><i class="fas fa-shopping-bag"></i> Quick Add</button>
-                            </form>
+            <div class="products-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 30px;">
+                
+                <!-- Product 1 -->
+                <div class="product-card fade-in" data-category="male_fashion" style="background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: transform 0.3s;">
+                    <div class="product-img-wrapper" style="position: relative; height: 400px;">
+                        <img src="https://images.unsplash.com/photo-1594938298596-70f56fb3ca9b?q=80&w=800&auto=format&fit=crop" alt="Classic Tailored Suit" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div class="badges" style="position: absolute; top: 15px; left: 15px;">
+                            <span class="badge badge-light" style="background: white; padding: 5px 10px; font-size: 0.8rem; border-radius: 3px; font-weight: 600;">In Stock</span>
                         </div>
                     </div>
-                    <div class="product-info">
-                        <div class="product-meta">
-                            <span class="product-gender"><?= ucfirst($p['gender']) ?></span>
-                        </div>
-                        <h3 class="product-name" title="<?= htmlspecialchars($p['name']) ?>"><?= htmlspecialchars($p['name']) ?></h3>
-                        <div class="product-price">₦<?= number_format($p['price'], 2) ?></div>
+                    <div class="product-info" style="padding: 20px;">
+                        <div class="product-meta" style="color: #888; font-size: 0.9rem; margin-bottom: 5px;">Men</div>
+                        <h3 class="product-name" style="margin: 0 0 10px; font-family: 'Playfair Display', serif; font-size: 1.2rem;">Classic Tailored Suit</h3>
+                        <div class="product-price" style="font-weight: 600; color: #d4af37;">₦150,000.00</div>
+                        <button class="btn btn-add-cart" style="width: 100%; margin-top: 15px; background: #000; color: #fff; border: none; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="alert('Added to cart! (Static Preview)')"><i class="fas fa-shopping-bag"></i> Quick Add</button>
                     </div>
                 </div>
-                <?php endforeach; ?>
+
+                <!-- Product 2 -->
+                <div class="product-card fade-in" data-category="female_fashion" style="background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: transform 0.3s;">
+                    <div class="product-img-wrapper" style="position: relative; height: 400px;">
+                        <img src="https://images.unsplash.com/photo-1566150905458-1bf1fc113f0d?q=80&w=800&auto=format&fit=crop" alt="Evening Gown" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div class="badges" style="position: absolute; top: 15px; left: 15px;">
+                            <span class="badge badge-light" style="background: white; padding: 5px 10px; font-size: 0.8rem; border-radius: 3px; font-weight: 600;">In Stock</span>
+                        </div>
+                    </div>
+                    <div class="product-info" style="padding: 20px;">
+                        <div class="product-meta" style="color: #888; font-size: 0.9rem; margin-bottom: 5px;">Women</div>
+                        <h3 class="product-name" style="margin: 0 0 10px; font-family: 'Playfair Display', serif; font-size: 1.2rem;">Elegant Evening Gown</h3>
+                        <div class="product-price" style="font-weight: 600; color: #d4af37;">₦200,000.00</div>
+                        <button class="btn btn-add-cart" style="width: 100%; margin-top: 15px; background: #000; color: #fff; border: none; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="alert('Added to cart! (Static Preview)')"><i class="fas fa-shopping-bag"></i> Quick Add</button>
+                    </div>
+                </div>
+
+                <!-- Product 3 -->
+                <div class="product-card fade-in" data-category="fragrance" style="background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: transform 0.3s;">
+                    <div class="product-img-wrapper" style="position: relative; height: 400px;">
+                        <img src="https://images.unsplash.com/photo-1594035910387-fea47714263f?q=80&w=800&auto=format&fit=crop" alt="Midnight Oud Premium" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div class="badges" style="position: absolute; top: 15px; left: 15px;">
+                            <span class="badge badge-dark" style="background: #000; color: #d4af37; padding: 5px 10px; font-size: 0.8rem; border-radius: 3px; font-weight: 600;">Premium</span>
+                        </div>
+                    </div>
+                    <div class="product-info" style="padding: 20px;">
+                        <div class="product-meta" style="color: #888; font-size: 0.9rem; margin-bottom: 5px;">Unisex</div>
+                        <h3 class="product-name" style="margin: 0 0 10px; font-family: 'Playfair Display', serif; font-size: 1.2rem;">Midnight Oud</h3>
+                        <div class="product-price" style="font-weight: 600; color: #d4af37;">₦120,000.00</div>
+                        <button class="btn btn-add-cart" style="width: 100%; margin-top: 15px; background: #000; color: #fff; border: none; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="alert('Added to cart! (Static Preview)')"><i class="fas fa-shopping-bag"></i> Quick Add</button>
+                    </div>
+                </div>
+
+                <!-- Product 4 -->
+                <div class="product-card fade-in" data-category="male_fashion" style="background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: transform 0.3s;">
+                    <div class="product-img-wrapper" style="position: relative; height: 400px;">
+                        <img src="https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?q=80&w=800&auto=format&fit=crop" alt="Luxury Silk Shirt" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div class="badges" style="position: absolute; top: 15px; left: 15px;">
+                            <span class="badge badge-light" style="background: white; padding: 5px 10px; font-size: 0.8rem; border-radius: 3px; font-weight: 600;">In Stock</span>
+                        </div>
+                    </div>
+                    <div class="product-info" style="padding: 20px;">
+                        <div class="product-meta" style="color: #888; font-size: 0.9rem; margin-bottom: 5px;">Men</div>
+                        <h3 class="product-name" style="margin: 0 0 10px; font-family: 'Playfair Display', serif; font-size: 1.2rem;">Luxury Silk Shirt</h3>
+                        <div class="product-price" style="font-weight: 600; color: #d4af37;">₦45,000.00</div>
+                        <button class="btn btn-add-cart" style="width: 100%; margin-top: 15px; background: #000; color: #fff; border: none; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="alert('Added to cart! (Static Preview)')"><i class="fas fa-shopping-bag"></i> Quick Add</button>
+                    </div>
+                </div>
+
+                <!-- Product 5 -->
+                <div class="product-card fade-in" data-category="female_fashion" style="background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: transform 0.3s;">
+                    <div class="product-img-wrapper" style="position: relative; height: 400px;">
+                        <img src="https://images.unsplash.com/photo-1584916201218-f4242ceb4809?q=80&w=800&auto=format&fit=crop" alt="Designer Handbag" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div class="badges" style="position: absolute; top: 15px; left: 15px;">
+                            <span class="badge badge-light" style="background: white; padding: 5px 10px; font-size: 0.8rem; border-radius: 3px; font-weight: 600;">In Stock</span>
+                        </div>
+                    </div>
+                    <div class="product-info" style="padding: 20px;">
+                        <div class="product-meta" style="color: #888; font-size: 0.9rem; margin-bottom: 5px;">Women</div>
+                        <h3 class="product-name" style="margin: 0 0 10px; font-family: 'Playfair Display', serif; font-size: 1.2rem;">Designer Handbag</h3>
+                        <div class="product-price" style="font-weight: 600; color: #d4af37;">₦85,000.00</div>
+                        <button class="btn btn-add-cart" style="width: 100%; margin-top: 15px; background: #000; color: #fff; border: none; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="alert('Added to cart! (Static Preview)')"><i class="fas fa-shopping-bag"></i> Quick Add</button>
+                    </div>
+                </div>
+
+                <!-- Product 6 -->
+                <div class="product-card fade-in" data-category="fragrance" style="background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); transition: transform 0.3s;">
+                    <div class="product-img-wrapper" style="position: relative; height: 400px;">
+                        <img src="https://images.unsplash.com/photo-1541643600914-78b084683601?q=80&w=800&auto=format&fit=crop" alt="Royal Amber" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div class="badges" style="position: absolute; top: 15px; left: 15px;">
+                            <span class="badge badge-dark" style="background: #000; color: #d4af37; padding: 5px 10px; font-size: 0.8rem; border-radius: 3px; font-weight: 600;">Premium</span>
+                        </div>
+                    </div>
+                    <div class="product-info" style="padding: 20px;">
+                        <div class="product-meta" style="color: #888; font-size: 0.9rem; margin-bottom: 5px;">Unisex</div>
+                        <h3 class="product-name" style="margin: 0 0 10px; font-family: 'Playfair Display', serif; font-size: 1.2rem;">Royal Amber</h3>
+                        <div class="product-price" style="font-weight: 600; color: #d4af37;">₦95,000.00</div>
+                        <button class="btn btn-add-cart" style="width: 100%; margin-top: 15px; background: #000; color: #fff; border: none; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="alert('Added to cart! (Static Preview)')"><i class="fas fa-shopping-bag"></i> Quick Add</button>
+                    </div>
+                </div>
+
             </div>
         </div>
     </main> <!-- End main-content -->
 
-    <footer class="footer">
-        <div class="container footer-grid">
+    <footer class="footer" style="background: #0a0a0a; color: white; padding: 60px 0 20px;">
+        <div class="container footer-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 40px; margin-bottom: 40px;">
             <div class="footer-brand">
-                <a href="index.html" class="logo footer-logo">F&F<span>.</span></a>
-                <p class="footer-desc">Curating luxury and elegance. Discover our exclusive collection of premium clothing and signature fragrances.</p>
-                <div class="social-icons">
-                    <a href="https://instagram.com/arin_ze67" target="_blank" data-tooltip="Instagram"><i class="fab fa-instagram"></i></a>
-                    <a href="https://wa.me/2348074001039" target="_blank" data-tooltip="WhatsApp"><i class="fab fa-whatsapp"></i></a>
-                    <a href="mailto:arinzeudeoba@gmail.com" data-tooltip="Email"><i class="far fa-envelope"></i></a>
+                <a href="index.html" class="logo footer-logo" style="color: white; font-family: 'Playfair Display', serif; font-size: 2rem; text-decoration: none;">F&F<span style="color: #d4af37;">.</span></a>
+                <p class="footer-desc" style="color: #aaa; line-height: 1.6; margin-top: 15px;">Curating luxury and elegance. Discover our exclusive collection of premium clothing and signature fragrances.</p>
+                <div class="social-icons" style="margin-top: 20px; display: flex; gap: 15px;">
+                    <a href="#" style="color: white; background: #222; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; text-decoration: none;"><i class="fab fa-instagram"></i></a>
+                    <a href="#" style="color: white; background: #222; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; text-decoration: none;"><i class="fab fa-whatsapp"></i></a>
+                    <a href="#" style="color: white; background: #222; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; text-decoration: none;"><i class="far fa-envelope"></i></a>
                 </div>
             </div>
             
             <div class="footer-links">
-                <h3>Shop</h3>
-                <ul>
-                    <li><a href="index.html#men">Men's Collection</a></li>
-                    <li><a href="index.html#women">Women's Collection</a></li>
-                    <li><a href="index.html#fragrance">Fragrances</a></li>
+                <h3 style="font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 20px;">Shop</h3>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="margin-bottom: 10px;"><a href="#shop" style="color: #aaa; text-decoration: none; transition: color 0.3s;">Men's Collection</a></li>
+                    <li style="margin-bottom: 10px;"><a href="#shop" style="color: #aaa; text-decoration: none; transition: color 0.3s;">Women's Collection</a></li>
+                    <li style="margin-bottom: 10px;"><a href="#shop" style="color: #aaa; text-decoration: none; transition: color 0.3s;">Fragrances</a></li>
                 </ul>
             </div>
 
             <div class="footer-contact">
-                <h3>Contact</h3>
-                <ul class="contact-list">
-                    <li>
-                        <i class="fas fa-map-marker-alt"></i>
+                <h3 style="font-family: 'Playfair Display', serif; font-size: 1.2rem; margin-bottom: 20px;">Contact</h3>
+                <ul class="contact-list" style="list-style: none; padding: 0; color: #aaa;">
+                    <li style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-map-marker-alt" style="color: #d4af37;"></i>
                         <span>SABURIA NO11, DEI-DEI</span>
                     </li>
-                    <li>
-                        <i class="fab fa-whatsapp"></i>
-                        <a href="https://wa.me/2348074001039" target="_blank">+2348074001039</a>
+                    <li style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                        <i class="fab fa-whatsapp" style="color: #d4af37;"></i>
+                        <span>+2348074001039</span>
                     </li>
-                    <li>
-                        <i class="far fa-envelope"></i>
-                        <a href="mailto:arinzeudeoba@gmail.com">arinzeudeoba@gmail.com</a>
+                    <li style="margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
+                        <i class="far fa-envelope" style="color: #d4af37;"></i>
+                        <span>arinzeudeoba@gmail.com</span>
                     </li>
                 </ul>
             </div>
-
-            <div class="footer-newsletter">
-                <h3>Join Our List</h3>
-                <p>Subscribe for exclusive offers and updates.</p>
-                <form class="newsletter-form" onsubmit="event.preventDefault(); showToast('Subscribed successfully!', 'success'); this.reset();">
-                    <input type="email" placeholder="Your email address" required>
-                    <button type="submit" aria-label="Subscribe"><i class="fas fa-arrow-right"></i></button>
-                </form>
-            </div>
         </div>
-        <div class="footer-bottom">
+        <div class="footer-bottom" style="border-top: 1px solid #222; padding-top: 20px; text-align: center; color: #777; font-size: 0.9rem;">
             <div class="container">
-                <p>&copy; <?= date('Y') ?> F&F Fashion and Fragrance. All rights reserved.</p>
+                <p>&copy; 2026 F&F Fashion and Fragrance. All rights reserved.</p>
             </div>
         </div>
     </footer>
 
     <!-- Back to Top -->
-    <button id="back-to-top" aria-label="Back to top">
+    <button id="back-to-top" aria-label="Back to top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" style="position: fixed; bottom: 30px; right: 30px; background: #d4af37; color: #000; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.2);">
         <i class="fas fa-chevron-up"></i>
     </button>
 
     <script>
-        const IS_LOGGED_IN = <?= isset($_SESSION['user_id']) ? 'true' : 'false' ?>;
+        // Simple static filtering script
+        document.addEventListener('DOMContentLoaded', () => {
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            const products = document.querySelectorAll('.product-card');
+
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active class
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    const filterValue = btn.getAttribute('data-filter');
+
+                    products.forEach(product => {
+                        if (filterValue === 'all' || product.getAttribute('data-category') === filterValue) {
+                            product.style.display = 'block';
+                        } else {
+                            product.style.display = 'none';
+                        }
+                    });
+                });
+            });
+
+            // Back to top button visibility
+            window.addEventListener('scroll', () => {
+                const backToTop = document.getElementById('back-to-top');
+                if (window.scrollY > 500) {
+                    backToTop.style.display = 'block';
+                } else {
+                    backToTop.style.display = 'none';
+                }
+            });
+        });
     </script>
-    <script src="assets/js/script.js"></script>
 </body>
 </html>
