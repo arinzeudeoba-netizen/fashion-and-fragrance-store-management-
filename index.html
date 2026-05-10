@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fashion & Fragrance Store - Redirecting</title>
+    <!-- Meta refresh to automatically redirect to the PHP index file -->
+    <meta http-equiv="refresh" content="0;url=index.php">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        .redirect-container {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        a {
+            color: #000;
+            text-decoration: underline;
+            font-weight: bold;
+        }
+    </style>
+    <script>
+        // Fallback JavaScript redirect
+        window.location.href = "index.php";
+    </script>
+</head>
+<body>
+    <div class="redirect-container">
+        <h2>Loading the Store...</h2>
+        <p>If you are not redirected automatically, <a href="index.php">click here</a>.</p>
+    </div>
+</body>
+</html>
